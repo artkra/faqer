@@ -16,5 +16,5 @@ class Command(BaseCommand):
         tokens = get_tokens()
         logger.info(f'Prepared {len(tokens)} tokens.')
         logger.info('Starting training.')
-        train(tokens[0:100])
+        train(tokens)
         logger.info('Model trained.')

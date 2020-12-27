@@ -22,8 +22,11 @@ logger = logging.getLogger(__file__)
 torch.manual_seed(1)
 
 
-def get_tokens():
-    return tokenize_text(get_text())
+def get_tokens(limit=None):
+    text = get_text()
+    if limit is not None:
+        text = text[0:limit]
+    return tokenize_text(text)
 
 
 def train(tokens):
