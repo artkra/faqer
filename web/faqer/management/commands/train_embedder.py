@@ -9,7 +9,7 @@ logger = logging.getLogger(__file__)
 
 
 class Command(BaseCommand):
-    help = 'Synchronize the current state of ContentPackage objects from the external integrated system.'
+    help = 'Train base embedder.'
 
     def handle(self, *args, **options):
         logger.info('Preparing tokens...')
