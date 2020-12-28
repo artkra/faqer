@@ -1,17 +1,21 @@
 import logging
 import pickle
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Optional
 
 from django.conf import settings
 
 import torch
+from torch.nn import PairwiseDistance
 
 from .models import EmbeddingModel
 from .train import VOCAB_SIZE_KEY
 
 
 logger = logging.getLogger(__file__)
+
+
+DISTANCE_THRESHOLD = float(3)
 
 
 def load_embedder_with_vocabulary(pkl_name=None) -> Tuple[EmbeddingModel, dict]:
@@ -48,3 +52,12 @@ def load_embedder_with_vocabulary(pkl_name=None) -> Tuple[EmbeddingModel, dict]:
         except Exception as e:
             logger.error(f'Failed to load embedder model {pkl_name}: {e}')
             return None, None
+
+
+def distance(model, vocabulary, word1, word2) -> Optional[float]:
+    if word1 not in vocabulary or word2 not in vocabulary:
+        return None
+    return PairwiseDistance()(
+        model.embeddings(torch.tensor([vocabulary[word1]], dtype=torch.long)),
+        model.embeddings(torch.tensor([vocabulary[word2]], dtype=torch.long)),
+    )
