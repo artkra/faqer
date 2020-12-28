@@ -3,12 +3,18 @@ from pathlib import Path
 
 from django.conf import settings
 import nltk
+from nltk.stem.snowball import RussianStemmer
 
 
 def get_text():
     msg_file = Path.joinpath(settings.FAQER_DATA_DIR, Path('slack/messages.txt'))
     with open(msg_file, 'r') as fr:
         return fr.read()
+
+
+def prepare_word(word):
+    stemmer = RussianStemmer()
+    return stemmer.stem(word.lower())
 
 
 def tokenize_text(text):
@@ -25,7 +31,7 @@ def tokenize_text(text):
             return False
         return True
 
-    tokens = [w.lower() for w in nltk.tokenize.word_tokenize(text) if to_include(w)]
+    tokens = [prepare_word(w) for w in nltk.tokenize.word_tokenize(text) if to_include(w)]
     return tokens
 
 
