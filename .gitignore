@@ -4,5 +4,6 @@
 
 data/*
 
+models/rdt/*
 models/notebooks/data/*
 **/.ipynb_checkpoints

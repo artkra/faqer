@@ -3,9 +3,12 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 FAQER_DATA_DIR = Path.joinpath(BASE_DIR.parent, Path('data'))
-PICKLE_DIR = Path.joinpath(BASE_DIR.parent, Path('models/pickled'))
+MODELS_DIR = Path.joinpath(BASE_DIR.parent, Path('models'))
+PICKLE_DIR = Path.joinpath(MODELS_DIR, Path('pickled'))
 EMBEDDER_MODEL_PREFIX = 'embedder.model'
 VOCABULARY_PREFIX = 'WORDS-'
+NAVEC_DATAFILE_PATH = Path.joinpath(FAQER_DATA_DIR, Path('navec/navec_hudlit_v1_12B_500K_300d_100q.tar'))
+RTD_MODEL_PATH = Path.joinpath(MODELS_DIR, Path('rdt/all.norm-sz100-w10-cb0-it1-min100.w2v'))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
@@ -27,6 +30,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_extensions',
     'faqer.apps.Config'
 ]
 

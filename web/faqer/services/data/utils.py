@@ -6,22 +6,25 @@ import nltk
 from nltk.stem.snowball import RussianStemmer
 
 
+STEMMER = RussianStemmer()
+MSG_FILE = Path.joinpath(settings.FAQER_DATA_DIR, Path('slack/messages.txt'))
+
+
 def get_text():
-    msg_file = Path.joinpath(settings.FAQER_DATA_DIR, Path('slack/messages.txt'))
-    with open(msg_file, 'r') as fr:
+    with open(MSG_FILE, 'r') as fr:
         return fr.read()
 
 
-def prepare_word(word):
-    stemmer = RussianStemmer()
-    return stemmer.stem(word.lower())
+def get_lines():
+    with open(MSG_FILE, 'r') as fr:
+        return fr.readlines() 
+
+
+def stem_word(word):
+    return STEMMER.stem(word.lower())
 
 
 def tokenize_text(text):
-    nltk.data.path.append(settings.FAQER_DATA_DIR)
-    nltk.download('stopwords', settings.FAQER_DATA_DIR)
-    nltk.download('punkt')
-
     def to_include(word):
         if any([
             not word.isalpha(),
@@ -31,7 +34,7 @@ def tokenize_text(text):
             return False
         return True
 
-    tokens = [prepare_word(w) for w in nltk.tokenize.word_tokenize(text) if to_include(w)]
+    tokens = [stem_word(w) for w in nltk.tokenize.word_tokenize(text) if to_include(w)]
     return tokens
 
 

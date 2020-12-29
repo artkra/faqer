@@ -6,7 +6,7 @@ class EmbeddingModel(nn.Module):
 
     def __init__(self, vocab_size):
         CONTEXT_SIZE = 2
-        EMBEDDING_DIM = 50
+        EMBEDDING_DIM = 10
         super(EmbeddingModel, self).__init__()
         self.embeddings = nn.Embedding(vocab_size, EMBEDDING_DIM)
         self.linear1 = nn.Linear(CONTEXT_SIZE * EMBEDDING_DIM, 128)
