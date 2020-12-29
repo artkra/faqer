@@ -21,10 +21,14 @@ def get_lines():
 
 
 def stem_word(word):
-    return STEMMER.stem(word.lower())
+    return STEMMER.stem(word)
 
 
-def tokenize_text(text):
+def prepare_word(word):
+    return word.strip().lower()
+
+
+def tokenize_text(text, do_stem=True):
     def to_include(word):
         if any([
             not word.isalpha(),
@@ -33,9 +37,10 @@ def tokenize_text(text):
         ]):
             return False
         return True
-
-    tokens = [stem_word(w) for w in nltk.tokenize.word_tokenize(text) if to_include(w)]
-    return tokens
+    if do_stem:
+        return [stem_word(prepare_word(w)) for w in nltk.tokenize.word_tokenize(text) if to_include(w)]
+    else:
+        return [prepare_word(w) for w in nltk.tokenize.word_tokenize(text) if to_include(w)]
 
 
 def count_freq(tokens):
