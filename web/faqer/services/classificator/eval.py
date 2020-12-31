@@ -14,7 +14,7 @@ from slovnet.model.emb import NavecEmbedding
 from core.utils.meta import Singleton
 from .models import EmbeddingModel
 from .train import VOCAB_SIZE_KEY
-from faqer.services.data.utils import stem_word
+from faqer.services.data.utils import get_trigrams, stem_word
 
 
 logger = logging.getLogger(__file__)
@@ -72,15 +72,21 @@ class RDTModel(BaseDistCalculator, metaclass=Singleton):
         w2v_fpath = settings.RTD_MODEL_PATH
         self.w2v = gensim.models.KeyedVectors.load_word2vec_format(w2v_fpath, binary=True, unicode_errors='ignore')
         self.w2v.init_sims(replace=True)
+    
+    def _prepare_word(self, word) -> str:
+        return word.lower().strip()
 
     def dist_words(self, word1, word2) -> Optional[float]:
+        word1 = self._prepare_word(word1)
+        word2 = self._prepare_word(word2)
+        if word1 not in self.w2v.vocab or word2 not in self.w2v.vocab:
+            return None
         return self.w2v.distance(word1, word2)
 
     def get_synonyms(self, word, limit=3) -> List[str]:
         if word in self.w2v.vocab:
             return self.w2v.most_similar(word)[:limit]
         return []
-
 
 
 class IOWDistCalculator(BaseDistCalculator):
@@ -98,6 +104,8 @@ class IOWDistCalculator(BaseDistCalculator):
             return stem_word(word)
         synonyms = self.rdt_model.get_synonyms(word)
         for syn in synonyms:
+            # syn is a tuple of word - probability
+            syn = syn[0]
             if syn in self.vocab:
                 return syn
             if stem_word(syn) in self.vocab:
@@ -128,6 +136,8 @@ class NavecDistCalculator(BaseDistCalculator, metaclass=Singleton):
         return word.lower().strip()
 
     def dist_words(self, word1, word2) -> Optional[float]:
+        word1 = self._prepare_word(word1)
+        word2 = self._prepare_word(word2)
         if word1 not in self.navec.vocab or word2 not in self.navec.vocab:
             return None
         return float(PairwiseDistance()(
