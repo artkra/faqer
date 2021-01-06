@@ -1,11 +1,20 @@
+import json
+import logging
+
+from django.conf import settings
 from gensim.summarization import keywords
 from numpy import ndarray
 from collections import Counter
 from statistics import mean
 from sklearn.cluster import DBSCAN
 
-from faqer.services.data.utils import get_lines, get_trigrams, to_include, tokenize_text
+from faqer.services.data.utils import (
+    MSG_FILE, get_lines, get_trigrams, to_include, tokenize_text
+)
 from faqer.services.classificator.eval import RDTModel
+
+
+logger = logging.getLogger(__file__)
 
 
 EPS = 0.99
@@ -13,7 +22,13 @@ MIN_SAMPLES = 19
 MAX_KEYWORDS_PER_CLUSTER = 10
 
 
-class CategoriesScanner:
+class CategoriesService:
+
+    UNCATEGORIZED = {
+        'id': None,
+        'name': 'UNCATEGORIZED',
+        'keywords': []
+    }
 
     def __init__(self) -> None:
         self.rdt_calc = RDTModel()
@@ -21,16 +36,23 @@ class CategoriesScanner:
         self.trigrams = []
         self.labels = []
         self.n_clusters = 0
+        self._categories = None
+        self._suggested_categories = None
+        self._cached_categories = None
 
+    def _prepare_keywords(self, filepath=None):
+        if filepath is None:
+            filepath = MSG_FILE
         text = ''
-        for line in get_lines():
+        for line in get_lines(filepath):
             if '?' in line:
                 text += line
 
         self.kwds = set(keywords(text).split())
 
-    def prepare_vectors(self):
-        for line in get_lines():
+    def _prepare_vectors(self, filepath=None):
+        self._prepare_keywords(filepath=filepath)
+        for line in get_lines(filepath=filepath):
             if '?' not in line:
                 continue
             tokens = tokenize_text(line, do_stem=False)
@@ -45,19 +67,15 @@ class CategoriesScanner:
                     self.trigram_vectors.append(sum_trigram)
                     self.trigrams.append(input_trigram)
 
-    def clasterize(self):
-        self.prepare_vectors()
+    def _clasterize(self, filepath=None):
+        self._prepare_vectors(filepath=filepath)
         dbscan = DBSCAN(eps=EPS, min_samples=MIN_SAMPLES).fit(self.trigram_vectors)
 
         self.labels = dbscan.labels_
         self.n_clusters = len(set(self.labels)) - (1 if -1 in self.labels else 0)
 
-    def suggest_categories(self):
-
-        def enrich_with_synonyms(word):
-            return [syn[0] for syn in self.rdt_calc.get_synonyms(word)]
-
-        self.clasterize()
+    def suggest_categories(self, filepath=None):
+        self._clasterize(filepath=filepath)
         clusters_summary = []
         for c in range(self.n_clusters): 
             clust_words = Counter()
@@ -69,19 +87,61 @@ class CategoriesScanner:
             if len(clust_keywords) < MAX_KEYWORDS_PER_CLUSTER:
                 # enrich with synonyms
                 clusters_summary.append(clust_keywords)
-        self.clusters_summary = clusters_summary
-        return self.clusters_summary
+        self.clusters_summary_keywords = clusters_summary
+        return self.clusters_summary_keywords
 
-    def predict_cat(self, sentence):
+    def load_categories(self):
+        if self._categories is not None:
+            raise ValueError('Categories already loaded. Instantiate another scanner.')
+        
+        self._categories = {}
+        self._suggested_categories = {}
+        self._cached_categories = {}
+        with open(settings.CATEGORIES_SUGGESTED_PATH, 'r') as f:
+            categories = json.load(f)
+            for cat in categories:
+                self._categories[cat['id']] = cat
+                self._suggested_categories[cat['id']] = cat
+
+        with open(settings.CATEGORIES_CACHE_PATH, 'r') as f:
+            try:
+                cache_categories = json.load(f)
+                for cat in cache_categories:
+                    self._categories[cat['id']] = cat
+                    self._cached_categories[cat['id']] = cat
+            except Exception as e:
+                logger.error(f'Failed to load cache categories data: {e}')
+
+        return self
+
+    @property
+    def categories(self):
+        return [v for v in self._categories.values()]
+
+    @property
+    def suggested_categories(self):
+        return [v for v in self._suggested_categories.values()]
+
+    @property
+    def cached_categories(self):
+        return [v for v in self._cached_categories.values()]
+
+    def predict_category(self, sentence):
+        if len(self._categories) < 1:
+            raise ValueError('No categories to suggest. Clasterize data first.')
+
         dists = []
-        bag = set().union(*self.clusters_summary)
-        for i, summary in enumerate(self.clusters_summary):
+
+        for i, cat in enumerate(self.categories):
             clust_dists = []
             for word in tokenize_text(sentence, do_stem=False):
-                if word in bag:
-                    for kwrd in summary:
-                        dist = self.rdt_calc.dist_words(word, kwrd)
-                        if dist:
-                            clust_dists.append(dist)
-            dists.append((i, mean(clust_dists)))
-        return dists
+                for kwrd in cat.get('keywords', []):
+                    dist = self.rdt_calc.dist_words(word, kwrd)
+                    if dist:
+                        clust_dists.append(dist)
+            if len(clust_dists) > 0:
+                dists.append((i, mean(clust_dists)))
+        return sorted(dists, key=lambda x: x[1])
+
+
+categories_service = CategoriesService().load_categories()

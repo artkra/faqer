@@ -17,8 +17,10 @@ def get_text():
         return fr.read()
 
 
-def get_lines():
-    with open(MSG_FILE, 'r') as fr:
+def get_lines(filepath=None):
+    if filepath is None:
+        filepath = MSG_FILE
+    with open(filepath, 'r') as fr:
         return fr.readlines() 
 
 

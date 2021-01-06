@@ -9,6 +9,10 @@ EMBEDDER_MODEL_PREFIX = 'embedder.model'
 VOCABULARY_PREFIX = 'WORDS-'
 NAVEC_DATAFILE_PATH = Path.joinpath(FAQER_DATA_DIR, Path('navec/navec_hudlit_v1_12B_500K_300d_100q.tar'))
 RTD_MODEL_PATH = Path.joinpath(MODELS_DIR, Path('rdt/all.norm-sz100-w10-cb0-it1-min100.w2v'))
+CATEGORIES_DIR_PATH = Path.joinpath(FAQER_DATA_DIR,'categories')
+CATEGORIES_SUGGESTED_PATH = Path.joinpath(CATEGORIES_DIR_PATH, 'categories.suggested.json')
+CATEGORIES_CACHE_PATH = Path.joinpath(CATEGORIES_DIR_PATH, 'categories.cache.json')
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
@@ -38,7 +42,6 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
