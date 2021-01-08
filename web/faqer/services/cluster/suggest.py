@@ -1,5 +1,8 @@
 import json
+from copy import copy
 import logging
+from threading import Lock
+from typing import List
 
 from django.conf import settings
 from gensim.summarization import keywords
@@ -26,7 +29,7 @@ class CategoriesService:
 
     UNCATEGORIZED = {
         'id': None,
-        'name': 'UNCATEGORIZED',
+        'category_name': 'UNCATEGORIZED',
         'keywords': []
     }
 
@@ -36,9 +39,11 @@ class CategoriesService:
         self.trigrams = []
         self.labels = []
         self.n_clusters = 0
+        self._suggest_threshold = 0.5
         self._categories = None
         self._suggested_categories = None
         self._cached_categories = None
+        self.lock = Lock()
 
     def _prepare_keywords(self, filepath=None):
         if filepath is None:
@@ -93,13 +98,16 @@ class CategoriesService:
     def load_categories(self):
         if self._categories is not None:
             raise ValueError('Categories already loaded. Instantiate another scanner.')
-        
+        base_cat_ids = set()
+        cache_cat_ids = set()
+
         self._categories = {}
         self._suggested_categories = {}
         self._cached_categories = {}
         with open(settings.CATEGORIES_SUGGESTED_PATH, 'r') as f:
             categories = json.load(f)
             for cat in categories:
+                base_cat_ids.add(cat['id'])
                 self._categories[cat['id']] = cat
                 self._suggested_categories[cat['id']] = cat
 
@@ -107,10 +115,15 @@ class CategoriesService:
             try:
                 cache_categories = json.load(f)
                 for cat in cache_categories:
+                    cache_cat_ids.add(cat['id'])
                     self._categories[cat['id']] = cat
                     self._cached_categories[cat['id']] = cat
             except Exception as e:
                 logger.error(f'Failed to load cache categories data: {e}')
+
+        # cache can remove unused categories
+        for rm_id in base_cat_ids.difference(cache_cat_ids):
+            del self._categories[rm_id]
 
         return self
 
@@ -126,22 +139,37 @@ class CategoriesService:
     def cached_categories(self):
         return [v for v in self._cached_categories.values()]
 
+    def update_categories(self, categories: List[dict]):
+        with self.lock:
+            for cat in categories:
+                self._categories[cat['id']] = cat
+            with open(settings.CATEGORIES_CACHE_PATH, 'w') as f:
+                json.dump(self.categories, f)
+
     def predict_category(self, sentence):
         if len(self._categories) < 1:
             raise ValueError('No categories to suggest. Clasterize data first.')
 
         dists = []
 
-        for i, cat in enumerate(self.categories):
+        for i, cat in self._categories.items():
             clust_dists = []
             for word in tokenize_text(sentence, do_stem=False):
                 for kwrd in cat.get('keywords', []):
                     dist = self.rdt_calc.dist_words(word, kwrd)
-                    if dist:
+                    if dist is not None:
                         clust_dists.append(dist)
             if len(clust_dists) > 0:
-                dists.append((i, mean(clust_dists)))
-        return sorted(dists, key=lambda x: x[1])
+                _min_dist = min(clust_dists)
+                if _min_dist < self._suggest_threshold:
+                    dists.append((i, _min_dist))
+        if len(dists) > 0:
+            suggested_category_tuple = sorted(dists, key=lambda x: x[1])[0]
+            res = copy(self._categories.get(suggested_category_tuple[0]))
+            res['distance'] = suggested_category_tuple[1]
+            return res
+
+        return self.UNCATEGORIZED
 
 
 categories_service = CategoriesService().load_categories()

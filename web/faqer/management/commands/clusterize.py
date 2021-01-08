@@ -23,7 +23,7 @@ class Command(BaseCommand):
             for i, keywords in enumerate(categories_keywords):
                 categories.append({
                     'id': i,
-                    'name': '',
+                    'category_name': '',
                     'keywords': keywords
                 })
 
